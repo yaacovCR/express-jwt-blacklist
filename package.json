@@ -1,6 +1,6 @@
 {
   "name": "express-jwt-blacklist",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "express-jwt plugin for token blacklisting",
   "main": "lib/index.js",
   "scripts": {
@@ -19,11 +19,11 @@
   "license": "Apache-2.0",
   "repository": "layerhq/express-jwt-blacklist",
   "dependencies": {
-    "memcached": "~2.1.0",
-    "redis": "~0.12.1"
+    "memcached": "^2.2.1",
+    "redis": "^2.4.2"
   },
   "devDependencies": {
-    "should": "~7.0.3",
-    "mocha": "~2.2.5"
+    "mocha": "^2.3.4",
+    "should": "^8.0.1"
   }
 }
