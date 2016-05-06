@@ -1,15 +1,9 @@
-/*globals describe it*/
+/*globals describe, it, before*/
 'use strict';
 
 var should = require('should');
 
 var blacklist = require('../../lib');
-blacklist.configure({
-  store: {
-    type: 'redis',
-    keyPrefix: 'express-jwt-blacklist-test:'
-  }
-});
 
 var JWT_USER = {
   iat: Math.floor(new Date() / 1000),
@@ -18,6 +12,16 @@ var JWT_USER = {
 };
 
 describe('Blacklist redis operations', function() {
+  before(function(done) {
+    blacklist.configure({
+      store: {
+        type: 'redis',
+        keyPrefix: 'express-jwt-blacklist-test:'
+      }
+    });
+    done();
+  });
+  
   it('isRevoked should return false', function(done) {
     blacklist.isRevoked({}, JWT_USER, function(err, revoked) {
       should.not.exist(err);

@@ -41,11 +41,13 @@ By default in-memory cache is used to store blacklist data. I do **not** recomme
 By passing `options` you can set the following:
 
  - `store.type` - Store type `memory`, `memcached` or `redis` (default: `memory`)
+ - `store.client` - Client object, obviates store.host, store.port, store.options
  - `store.host` - Store host (default: `127.0.0.1`)
  - `store.port` - Store port (default: `11211` memcached, `6379` redis)
  - `store.keyPrefix` - Key prefix for store to avoid collisions (default: `jwt-blacklist:`)
  - `store.options` - Additional store client options (default: `{}`)
- - `tokenId` - Unique JWT token identifier (default: `sub`)
+ - `tokenId` - JWT claim unique to user (default: `sub`)
+ - `indexBy` - JWT claim used for revocation (default: `iat`), note that purge still uses `iat`
  - `strict` - Strict revocation policy will return revoked `true` on store failure (default: `false`)
 
 ```javascript
@@ -68,13 +70,23 @@ blacklist.configure({
 
 This function it s plug-in for express-jwt [revoked tokens](https://github.com/auth0/express-jwt#revoked-tokens) function. It will take care of the `isRevoked` callback and handle the validation internally.
 
-### blacklist.revoke(user)
+### blacklist.revoke(user, [optionalLifetime], [optionalCallbackFn])
 
-This function will revoke a token, by passing in the `req.user` set by express-jwt library.
+This function will revoke a token, by passing in a token payload skeleton in the `req.user` format set by the express-jwt library. The lifetime of the revocation entry in the store, can optionally be set explicitly (in seconds), and is otherwise calculated from the `exp` claim. If no argument is provided and the token is missing the `exp` claim, the revocation entry will not expire. An optional callback function can be supplied that will be called on error with the error as its only argument.
 
-### blacklist.purge(user)
+Typically, the server backend will call this function when a particular route is hit and the token to be revoked is the same one supplied for authentication, i.e. in a logout route initiated by the user in question. Alternatively, the backend can construct a token payload skeleton, which may be useful in a case where an admin user would like to forcibly logout a user from a single session. In the latter case, it may be useful to set the lifetime argument explicitly, as the proper value for the `exp` claim will likely be unavailable.
 
-This function will purge **all** tokens older than current timestamp, by passing in the `req.user` set by express-jwt library.
+By default, revocation is based on the claim specified by `tokenId` as well as the `iat` claim, resulting in revocation of only the provided `req.user` token. The optional `index` configuration argument allows revocation of all tokens issued for a specific user that share the same value for the specified claim with `req.user`.
+
+The `index` argument may be useful if tokens are being refreshed, and you would therefore like to invalidate some, but not all, of the previously issued tokens, e.g. only those from a specific session.
+
+In particular, your token scheme may use the `sub` claim to represent the user, and the `jti` claim to represent a session, where the original and all subsequent refreshed tokens contain identical `sub` and `jti` claims, but other sessions for the user contain an identical `sub` claim, but  different `jti` claims. In this scenario, `tokenId` would be set to `sub` (the default), and the `index` should be set to `jti`. Note that if one user in this scenario is issued a token with a `jti` claim identical to a token that has been revoked for a  different user, it will still not be marked as revoked, as revocation is always based on the `tokenId` as well as the `index` argument.
+
+### blacklist.purge(user, [optionalLifetime], [optionalCallbackFn])
+
+This function will purge **all** tokens older than current timestamp, by passing in a a token payload skeleton in the `req.user` format set by the express-jwt library. The lifetime of the revocation entry in the store, can optionally be set explicitly (in seconds), and is otherwise calculated from the `exp` claim. If no argument is provided and the token is missing the `exp` claim, the revocation entry will not expire. An optional callback function can be supplied that will be called on error with the error as its only argument.
+
+Typically, the server backend will call this function when a particular route is hit and the tokens to be purged are similar to the one supplied for authentication, i.e. in a password change route initiated by the user in question. Alternatively, the backend can construct a token payload skeleton, which may be useful in a case where an admin user would like to forcibly logout all sessions for a different user. In the latter case, it may be useful to set the lifetime argument explicitly, as the proper value for the `exp` claim will likely be unavailable.
 
 ### Custom store
 
@@ -83,13 +95,13 @@ You can implement your own store by passing `store` object that implements these
  - `get(key, callback)`
  - `set(key, data, lifetime, callback)`
 
-### Considerations
+### Token Payload Considerations
 
-User object `req.user` that's being set by the express-jwt library **should** contain and match `tokenId` from configuration.
+User object `req.user` that's being set by the express-jwt library **should** contain claims matching `tokenId` and 'indexBy' from configuration.
 
-- You need to set either `sub` or `jti` or some other key in the payload when siging a JWT token.
-- Issued at `iat` timestamp should be present.
-- Expiration timestamp `exp` is optional but desired.
+- At a minimum, you need to set either `sub` or `jti` or some other claim in the payload when signing a JWT token to identify a user.
+- Expiration timestamp `exp` claim is optional but desired, as it will allow for expiration of revocation entries from the store, increasing the speed of the `isRevoked` check. Alternatively, a specified lifetime value can be passed to each revoke/purge call by the backend.
+- Issued at `iat` timestamp claim must be present, even if `indexBy` is set to another claim, so as to allow purge operations to work. `iat` is also used to calculate token lifetime, if no specified lifetime is set, and `exp` is present.
 
 ## Why blacklist?
 

@@ -1,4 +1,4 @@
-/*globals describe it*/
+/*globals describe, it*/
 'use strict';
 
 var should = require('should');
@@ -44,6 +44,16 @@ describe('Blacklist configuration', function() {
     try {
       blacklist.configure({
         tokenId: 123
+      });
+    } catch(e) {
+      should.exist(e);
+    }
+  });
+
+  it('should throw error on invalid indexBy configuration', function() {
+    try {
+      blacklist.configure({
+        indexBy: 123
       });
     } catch(e) {
       should.exist(e);
@@ -106,6 +116,26 @@ describe('Blacklist operations', function() {
   });
   
   it('isRevoked should return true', function(done) {
+    blacklist.isRevoked({}, JWT_USER, function(err, revoked) {
+      should.not.exist(err);
+      revoked.should.be.true();
+      done();
+    });
+  });
+
+  it('revoke should revoke another JWT token without a callback', function(done) {
+    JWT_USER.iat += 10;
+    blacklist.revoke(JWT_USER)
+    blacklist.isRevoked({}, JWT_USER, function(err, revoked) {
+      should.not.exist(err);
+      revoked.should.be.true();
+      done();
+    });
+  });
+
+  it('revoke should revoke another JWT token without the full original token', function(done) {
+    JWT_USER.iat += 10;
+    blacklist.revoke({ iat: JWT_USER.iat, sub: JWT_USER.sub })
     blacklist.isRevoked({}, JWT_USER, function(err, revoked) {
       should.not.exist(err);
       revoked.should.be.true();

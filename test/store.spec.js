@@ -1,4 +1,4 @@
-/*globals describe it*/
+/*globals describe, it, before*/
 'use strict';
 
 var should = require('should');
@@ -14,7 +14,7 @@ var JWT_USER = {
 var cache = {};
 
 describe('Blacklist custom store', function() {  
-  beforeEach(function() {
+  before(function() {
     blacklist.configure({
       store: {
         get: function(key, callback) {
