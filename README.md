@@ -92,7 +92,7 @@ Typically, the server backend will call this function when a particular route is
 
 You can implement your own store by passing `store` object that implements these two functions:
 
- - `get(key, callback)`
+ - `mget(keys, callback)`
  - `set(key, data, lifetime, callback)`
 
 ### Token Payload Considerations

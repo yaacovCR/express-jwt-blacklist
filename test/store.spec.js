@@ -17,8 +17,13 @@ describe('Blacklist custom store', function() {
   before(function() {
     blacklist.configure({
       store: {
-        get: function(key, callback) {
-          callback(null, cache[key]);
+        mget: function(keys, callback) {
+          var data = {};
+          for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            data[key] = cache[key];
+          };
+          callback(null, data);
         },
         set: function(key, data, lifetime, callback) {
           callback(null, cache[key] = data);

@@ -4,6 +4,7 @@
 var should = require('should');
 
 var blacklist = require('../lib');
+var utils = require('../lib/utils');
 
 var JWT_USER = {
   iat: 1439336202,
@@ -17,13 +18,6 @@ describe('Blacklist middleware', function() {
     (typeof blacklist.isRevoked).should.be.eql('function');
     (typeof blacklist.revoke).should.be.eql('function');
     (typeof blacklist.purge).should.be.eql('function');
-  });
-  
-  it('should expose TYPE', function() {
-    blacklist.TYPE.should.have.properties({
-      revoke: 'revoke',
-      purge: 'purge'
-    });
   });
 });
 
@@ -107,15 +101,16 @@ describe('Blacklist operations', function() {
     });
   });
   
-  it('revoke should revoke another JWT token', function(done) {
+  it('revoke should revoke another JWT token with a short TTL', function(done) {
     JWT_USER.iat += 10;
+    JWT_USER.exp = JWT_USER.iat + 1;
     blacklist.revoke(JWT_USER, function(err, revoked) {
       should.not.exist(err);
       done();
     });
   });
   
-  it('isRevoked should return true', function(done) {
+  it('isRevoked on the new token should return true', function(done) {
     blacklist.isRevoked({}, JWT_USER, function(err, revoked) {
       should.not.exist(err);
       revoked.should.be.true();
@@ -123,8 +118,19 @@ describe('Blacklist operations', function() {
     });
   });
 
+  it('isRevoked on the old token should return true even after expiration of the new token', function(done) {
+    JWT_USER.iat -= 10;
+    setTimeout(function() {
+      blacklist.isRevoked({}, JWT_USER, function(err, revoked) {
+        should.not.exist(err);
+        revoked.should.be.true();
+        done();
+      });  
+    }, 1000);
+  });
+
   it('revoke should revoke another JWT token without a callback', function(done) {
-    JWT_USER.iat += 10;
+    JWT_USER.iat += 20;
     blacklist.revoke(JWT_USER)
     blacklist.isRevoked({}, JWT_USER, function(err, revoked) {
       should.not.exist(err);
@@ -139,6 +145,36 @@ describe('Blacklist operations', function() {
     blacklist.isRevoked({}, JWT_USER, function(err, revoked) {
       should.not.exist(err);
       revoked.should.be.true();
+      done();
+    });
+  });
+  
+  it('purge should purge tokens', function(done) {
+    JWT_USER = {
+      iat: utils.nowInSeconds(),
+      exp: utils.nowInSeconds() + 60,
+      sub: 'testSub'
+    };
+    blacklist.purge(JWT_USER, function(err, revoked) {
+      should.not.exist(err);
+      done();
+    });
+  });
+
+  it('isRevoked should return true for old tokens', function(done) {
+    JWT_USER.iat -= 1;
+    blacklist.isRevoked({}, JWT_USER, function(err, revoked) {
+      should.not.exist(err);
+      revoked.should.be.true();
+      done();
+    });
+  });
+
+  it('isRevoked should return false for new tokens', function(done) {
+    JWT_USER.iat += 1;
+    blacklist.isRevoked({}, JWT_USER, function(err, revoked) {
+      should.not.exist(err);
+      revoked.should.be.false();
       done();
     });
   });
